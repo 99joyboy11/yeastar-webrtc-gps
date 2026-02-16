@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Yeastar WebRTC + Dynamic Google Maps</title>
+</head>
+<body>
+
+<h2>Yeastar WebRTC Call + Location Popup</h2>
+
+<!-- Yeastar WebRTC placeholder -->
+<div id="yeastar-webtrunk"></div>
+
+<!-- Yeastar WebRTC script -->
+<script src="https://microbizone.sgycm.yeastarcloud.com/webtrunk/webtrunk_template.js?code=aXpWdkZDUG93UU1wdmxOY2RSOERORDdUdUZzRTFHQ0c="></script>
+
+<script>
+let callerLocation = null;
+let locationReady = false;
+
+// Capture GPS immediately on page load
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(position){
+        callerLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+        };
+        locationReady = true;
+        console.log("Location captured:", callerLocation);
+    }, function(err){
+        console.warn("Location not available:", err.message);
+    }, { enableHighAccuracy:true, timeout:15000 });
+} else {
+    console.warn("Geolocation not supported by browser");
+}
+
+// Function to open Google Maps dynamically using captured GPS
+function openMaps() {
+    if(callerLocation){
+        const dynamicMapsUrl = `https://www.google.com/maps?q=${callerLocation.latitude},${callerLocation.longitude}&z=18`;
+        window.open(dynamicMapsUrl, "_blank", "width=800,height=600,scrollbars=yes");
+    } else {
+        console.warn("Location not captured yet");
+    }
+}
+
+// Yeastar WebRTC callback: call answered
+window.addEventListener("message", function(event) {
+    if(event.data && event.data.type === "webrtc-call-status" && event.data.status === "answered"){
+        console.log("Call answered");
+
+        // Wait until GPS is ready (max 10 seconds)
+        if(locationReady){
+            openMaps();
+        } else {
+            let waitTime = 0;
+            const interval = setInterval(function(){
+                waitTime += 500;
+                if(locationReady || waitTime >= 10000){
+                    clearInterval(interval);
+                    openMaps();
+                }
+            }, 500);
+        }
+    }
+});
+</script>
+
+</body>
+</html>
