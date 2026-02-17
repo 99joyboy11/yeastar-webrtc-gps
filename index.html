@@ -2,76 +2,158 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Yeastar WebRTC + OSM Caller Location</title>
+<title>Emergency Call</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+<style>
+body {
+    margin:0;
+    padding:0;
+    font-family: Arial, sans-serif;
+    background: #f0f0f0;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+/* Thick iPhone-style frame */
+.mobile-phone {
+    width: 380px;
+    height: 780px;
+    border-radius: 50px;
+    background: #fff;
+    border: 20px solid #222; /* thicker frame */
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Top notch */
+.notch {
+    width: 180px;
+    height: 32px;
+    background: #111;
+    border-radius: 16px 16px 0 0;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+}
+
+/* Speaker slot */
+.speaker {
+    width: 60px;
+    height: 6px;
+    background: #555;
+    border-radius: 3px;
+    margin: 12px auto 0 auto;
+}
+
+/* Emergency call text */
+.emergency-text {
+    color: red;
+    text-align: center;
+    font-size: 30px;
+    font-weight: bold;
+    padding: 60px 0 12px 0; /* space for notch */
+}
+
+/* Map container */
+#map {
+    flex: 1;
+}
+
+/* Call button */
+.call-button {
+    width: 100px;
+    height: 100px;
+    background: red;
+    border-radius: 50%;
+    margin: 16px auto 32px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+    transition: transform 0.1s ease;
+}
+
+.call-button:hover {
+    transform: scale(1.1);
+}
+
+/* Phone icon bigger */
+.call-button svg {
+    width: 56px;
+    height: 56px;
+    fill: #fff;
+}
+</style>
 </head>
 <body>
 
-<h2>Yeastar WebRTC Call + Location</h2>
+<div class="mobile-phone">
+    <div class="notch">
+        <div class="speaker"></div>
+    </div>
+    <div class="emergency-text">Emergency Call</div>
+    <div id="map"></div>
+    <div class="call-button" id="callBtn">
+        <!-- White phone icon -->
+        <svg viewBox="0 0 512 512">
+            <path d="M391 351c-20 0-39-4-56-11-5-2-11-1-15 3l-49 37c-60-32-108-80-140-140l37-49c4-4 5-10 3-15-7-17-11-36-11-56 0-11-9-20-20-20H91c-11 0-20 9-20 20 0 159 129 288 288 288 11 0 20-9 20-20v-59c0-11-9-20-20-20z"/>
+        </svg>
+    </div>
+</div>
 
-<!-- Yeastar WebRTC placeholder -->
-<div id="yeastar-webtrunk"></div>
-
-<!-- Yeastar WebRTC script -->
-<script src="https://microbizone.sgycm.yeastarcloud.com/webtrunk/webtrunk_template.js?code=aXpWdkZDUG93UU1wdmxOY2RSOERORDdUdUZzRTFHQ0c="></script>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
 let callerLocation = null;
-let locationReady = false;
 
-// 1️⃣ Capture GPS on page load
-if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(function(position){
+// Initialize map
+const map = L.map('map').setView([0,0], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+let marker = null;
+
+// Capture GPS
+if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(function(pos){
         callerLocation = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
         };
-        locationReady = true;
+
+        map.setView([callerLocation.latitude, callerLocation.longitude], 16);
+        marker = L.marker([callerLocation.latitude, callerLocation.longitude])
+                  .addTo(map)
+                  .bindPopup("Caller Location")
+                  .openPopup();
+
         console.log("Location captured:", callerLocation);
     }, function(err){
-        console.warn("Location not available:", err.message);
-    }, { enableHighAccuracy:true, timeout:15000 });
-} else {
-    console.warn("Geolocation not supported by browser");
+        console.warn("Unable to get location:", err.message);
+        alert("GPS not available or permission denied");
+    }, {enableHighAccuracy:true, timeout:15000});
+}else{
+    alert("Geolocation not supported by your browser");
 }
 
-// 2️⃣ Open GitHub OSM map popup with real coordinates
-function openOSMMap() {
-    if(callerLocation){
-        const popupUrl = `https://99joyboy11.github.io/map2.html?lat=${callerLocation.latitude}&lng=${callerLocation.longitude}`;
-        window.open(popupUrl, "_blank", "width=900,height=700,scrollbars=yes");
-    } else {
-        console.warn("Location not ready");
-        // Optional: open map anyway without coordinates
-        const popupUrl = `https://99joyboy11.github.io/map2.html`;
-        window.open(popupUrl, "_blank", "width=900,height=700,scrollbars=yes");
-    }
-}
-
-// 3️⃣ Listen for Yeastar call answered event
-window.addEventListener("message", function(event) {
-    if(event.data && event.data.type === "webrtc-call-status" && event.data.status === "answered"){
-        console.log("Call answered");
-
-        // Wait max 10 seconds for GPS to be ready
-        let waitTime = 0;
-        const interval = setInterval(function(){
-            waitTime += 500;
-
-            if(locationReady){
-                clearInterval(interval);
-                openOSMMap();
-            }
-
-            if(waitTime >= 10000){
-                clearInterval(interval);
-                console.warn("GPS timeout - opening map anyway");
-                openOSMMap();
-            }
-
-        }, 500);
-    }
+// Call button opens Yeastar WebRTC Inbound Call Link
+document.getElementById("callBtn").addEventListener("click", function(){
+    const callLink = "https://microbizone.sgycm.yeastarcloud.com/webtrunk/calllink?code=aXpWdkZDUG93UU1wdmxOY2RSOERORDdUdUZzRTFHQ0c=";
+    window.open(callLink, "_blank");
 });
 </script>
-
 </body>
 </html>
