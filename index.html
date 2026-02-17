@@ -2,11 +2,11 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Yeastar WebRTC + Dynamic Google Maps</title>
+<title>Yeastar WebRTC + OSM Location</title>
 </head>
 <body>
 
-<h2>Yeastar WebRTC Call + Location Popup</h2>
+<h2>Yeastar WebRTC Call</h2>
 
 <!-- Yeastar WebRTC placeholder -->
 <div id="yeastar-webtrunk"></div>
@@ -34,34 +34,37 @@ if (navigator.geolocation) {
     console.warn("Geolocation not supported by browser");
 }
 
-// Function to open Google Maps dynamically using captured GPS
-function openMaps() {
+// Open GitHub OSM map page
+function openOSMMap() {
     if(callerLocation){
-        const dynamicMapsUrl = `https://www.google.com/maps?q=${callerLocation.latitude},${callerLocation.longitude}&z=18`;
-        window.open(dynamicMapsUrl, "_blank", "width=800,height=600,scrollbars=yes");
+        const popupUrl = `https://99joyboy11.github.io/map.html?lat=${callerLocation.latitude}&lng=${callerLocation.longitude}`;
+        window.open(popupUrl, "_blank", "width=900,height=700,scrollbars=yes");
     } else {
-        console.warn("Location not captured yet");
+        console.warn("Location not ready.");
     }
 }
 
-// Yeastar WebRTC callback: call answered
+// Listen for Yeastar call answered event
 window.addEventListener("message", function(event) {
     if(event.data && event.data.type === "webrtc-call-status" && event.data.status === "answered"){
         console.log("Call answered");
 
-        // Wait until GPS is ready (max 10 seconds)
-        if(locationReady){
-            openMaps();
-        } else {
-            let waitTime = 0;
-            const interval = setInterval(function(){
-                waitTime += 500;
-                if(locationReady || waitTime >= 10000){
-                    clearInterval(interval);
-                    openMaps();
-                }
-            }, 500);
-        }
+        let waitTime = 0;
+        const interval = setInterval(function(){
+            waitTime += 500;
+
+            if(locationReady){
+                clearInterval(interval);
+                openOSMMap();
+            }
+
+            if(waitTime >= 10000){
+                clearInterval(interval);
+                console.warn("GPS timeout - opening without location");
+                openOSMMap();
+            }
+
+        }, 500);
     }
 });
 </script>
